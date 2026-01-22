@@ -1,19 +1,43 @@
-# 🎈 Blank app template
+streamlit
+supabase
+import streamlit as st
+from supabase import create_client
 
-A simple Streamlit app template for you to modify!
+# --- 接続設定 ---
+url = "https://kgtureqdqqnijptuaiwl.supabase.co"
+key = "sb_publishable_AnBfPKUeVEg2OhvB7zTIqA_f-qk0HYx"
+supabase = create_client(url, key)
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
+st.set_page_config(page_title="Supabase Todo", layout="centered")
+st.title("✅ Supabase Todoリスト")
 
-### How to run it on your own machine
+# --- 1. 新しいタスクの追加 ---
+with st.form("add_task_form", clear_on_submit=True):
+    new_task = st.text_input("何をする？", placeholder="例：牛乳を買う")
+    submitted = st.form_submit_button("追加")
+    
+    if submitted and new_task:
+        # データベースに書き込み
+        supabase.table("todos").insert({"task": new_task}).execute()
+        st.success(f"追加しました: {new_task}")
 
-1. Install the requirements
+# --- 2. タスク一覧の表示と操作 ---
+st.divider()
+st.subheader("現在のタスク")
 
-   ```
-   $ pip install -r requirements.txt
-   ```
+# データベースから最新データを取得
+response = supabase.table("todos").select("*").order("inserted_at").execute()
+todos = response.data
 
-2. Run the app
-
-   ```
-   $ streamlit run streamlit_app.py
-   ```
+for todo in todos:
+    col1, col2 = st.columns([0.8, 0.2])
+    
+    # タスク名の表示（完了済みなら打ち消し線）
+    task_text = f"~~{todo['task']}~~" if todo['is_complete'] else todo['task']
+    col1.write(task_text)
+    
+    # 完了/未完了の切り替えボタン
+    btn_label = "戻す" if todo['is_complete'] else "完了"
+    if col2.button(btn_label, key=todo['id']):
+        supabase.table("todos").update({"is_complete": not todo['is_complete']}).eq("id", todo['id']).execute()
+        st.rerun() # 画面を更新
